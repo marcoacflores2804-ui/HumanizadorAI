@@ -25,8 +25,20 @@ object LocalTextEngine {
         Regex("\\bpor medio de\\b", RegexOption.IGNORE_CASE) to "mediante"
     )
 
+    fun analyzeStyle(sample: String): String {
+        val words = sample.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (words.size < 30) return "Escribe 30 palabras para analizar tu estilo."
+        val sentences = sample.split(Regex("[.!?]+")).map { it.trim() }.filter { it.isNotBlank() }
+        val average = if (sentences.isEmpty()) words.size.toDouble() else sentences.map { it.split(Regex("\\s+")).size }.average()
+        val length = when { average < 12 -> "frases breves"; average < 22 -> "frases de longitud media"; else -> "frases largas" }
+        val lower = sample.lowercase(Locale("es", "MX"))
+        val tone = if (listOf("la verdad", "pues", "bueno", "o sea", "creo que").any { lower.contains(it) }) "tono conversacional" else "tono directo"
+        return "Rasgos detectados: $length y $tone."
+    }
+
     fun rewrite(source: String, style: String, personalSample: String = ""): String {
         require(source.isNotBlank()) { "Escribe o importa un texto." }
+        require(personalSample.trim().split(Regex("\\s+")).count { it.isNotBlank() } >= 30) { "Escribe al menos 30 palabras para crear tu perfil de escritura." }
         require(source.length <= 100_000) { "El texto supera el límite local de 100,000 caracteres." }
 
         val normalized = source.replace("\r\n", "\n").replace('\r', '\n')
