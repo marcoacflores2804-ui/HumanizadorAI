@@ -59,7 +59,7 @@ No prometas ni optimices para evadir detectores de IA.
 Devuelve únicamente el texto revisado, sin introducciones ni explicaciones.
 `.trim();
 
-    const response = await openai.responses.create({ model, instructions, input: text });
+    const response = await openai.responses.create({ model, instructions, input: text, store: false });
     const result = response.output_text?.trim();
     if (!result) return res.status(502).json({ error: "La IA no devolvió texto. Inténtalo de nuevo." });
     return res.json({ result });
