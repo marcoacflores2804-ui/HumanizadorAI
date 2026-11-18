@@ -26,9 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.poi.xwpf.usermodel.XWPFDocument
-import java.io.BufferedReader
-import java.net.HttpURLConnection
-import java.net.URL
 
 private val Ink = Color(0xFF111329)
 private val Purple = Color(0xFF8067F5)
@@ -49,11 +46,9 @@ fun HumanizadorApp() {
     var input by remember { mutableStateOf("") }
     var output by remember { mutableStateOf("") }
     var style by remember { mutableStateOf("Natural y conversacional") }
-    var endpoint by remember { mutableStateOf("") }
     var writingProfile by remember { mutableStateOf("") }
     var showProfile by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     val openDocx = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -91,9 +86,9 @@ fun HumanizadorApp() {
                 Column {
                     Text("HUMANIZADOR AI", color = Color(0xFFB7A9FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text("Escribe con naturalidad.", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-                    Text("Tu asistente de escritura", color = Muted, fontSize = 14.sp)
+                    Text("Editor local de escritura", color = Muted, fontSize = 14.sp)
                 }
-                TextButton(onClick = { showSettings = true }) { Text("⚙ Ajustes") }
+                Text("MODO SIN INTERNET", color = Color(0xFF9BE7C4), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(22.dp))
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202342)), shape = RoundedCornerShape(20.dp)) {
@@ -149,16 +144,15 @@ fun HumanizadorApp() {
                         onClick = {
                             if (input.isBlank()) {
                                 Toast.makeText(context, "Primero escribe o importa un texto", Toast.LENGTH_SHORT).show()
-                            } else if (endpoint.isBlank()) {
-                                Toast.makeText(context, "Configura la conexión de IA en Ajustes", Toast.LENGTH_LONG).show()
-                                showSettings = true
                             } else {
                                 busy = true
                                 scope.launch {
                                     try {
-                                        output = withContext(Dispatchers.IO) { callHumanizer(endpoint, input, style, writingProfile) }
+                                        output = withContext(Dispatchers.Default) {
+                                            LocalTextEngine.rewrite(input, style, writingProfile)
+                                        }
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "Error de conexión: ${e.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "No se pudo revisar el texto: ${e.message}", Toast.LENGTH_LONG).show()
                                     } finally { busy = false }
                                 }
                             }
@@ -168,7 +162,7 @@ fun HumanizadorApp() {
                         shape = RoundedCornerShape(14.dp), enabled = !busy
                     ) {
                         if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("✦ Humanizar texto", fontWeight = FontWeight.Bold)
+                        else Text("✦ Mejorar texto sin internet", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -193,23 +187,7 @@ fun HumanizadorApp() {
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Text("Revisa siempre el resultado y conserva tu propia voz. La herramienta mejora claridad y fluidez; no garantiza resultados frente a detectores.", color = Muted, fontSize = 12.sp)
-        }
-        if (showSettings) {
-            AlertDialog(
-                onDismissRequest = { showSettings = false },
-                title = { Text("Conexión de inteligencia artificial") },
-                text = {
-                    Column {
-                        Text("Pega la URL HTTPS de tu servidor. Nunca pegues aquí claves privadas.")
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = endpoint, onValueChange = { endpoint = it },
-                            label = { Text("URL del servicio") }, placeholder = { Text("https://tu-servidor.com/humanize") })
-                    }
-                },
-                confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Guardar") } },
-                dismissButton = { TextButton(onClick = { showSettings = false }) { Text("Cancelar") } }
-            )
+            Text("El procesamiento se realiza en este dispositivo, sin enviar tus documentos a servidores. Revisa siempre el resultado y conserva tu propia voz.", color = Muted, fontSize = 12.sp)
         }
     }
 }
@@ -234,26 +212,3 @@ private fun writeDocx(context: Context, uri: Uri, text: String) {
     }
 }
 
-private fun callHumanizer(endpoint: String, text: String, style: String, writingProfile: String): String {
-    val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-        requestMethod = "POST"
-        connectTimeout = 20000
-        readTimeout = 60000
-        doOutput = true
-        setRequestProperty("Content-Type", "application/json; charset=utf-8")
-    }
-    val payload = """{"text":${jsonString(text)},"style":${jsonString(style)},"writing_profile":${jsonString(writingProfile)}}"""
-    connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-    val code = connection.responseCode
-    val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
-        .bufferedReader().use(BufferedReader::readText)
-    connection.disconnect()
-    if (code !in 200..299) error("Servidor respondió HTTP $code: $body")
-    val match = Regex(""""result"\s*:\s*"((?:\\.|[^"\\])*)"""").find(body)
-        ?: error("Respuesta inválida: se esperaba JSON con campo result")
-    return match.groupValues[1].replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\")
-}
-
-private fun jsonString(value: String): String =
-    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
-        .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "\""
