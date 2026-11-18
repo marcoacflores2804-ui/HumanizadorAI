@@ -46,6 +46,7 @@ fun HumanizadorApp() {
     var input by remember { mutableStateOf("") }
     var output by remember { mutableStateOf("") }
     var style by remember { mutableStateOf("Natural y conversacional") }
+    var writingSample by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
@@ -88,7 +89,25 @@ fun HumanizadorApp() {
                 }
                 Text("MODO SIN INTERNET", color = Color(0xFF9BE7C4), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(18.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202342)), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Conozcamos tu forma de escribir", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Escribe al menos 30 palabras como normalmente escribes. Así podremos reconocer rasgos de tu estilo y conservar mejor tu voz.", color = Muted, fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = writingSample, onValueChange = { writingSample = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                        placeholder = { Text("Escribe aquí una muestra propia de al menos 30 palabras…", color = Muted) },
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Purple, unfocusedBorderColor = Color(0xFF454966), focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Purple)
+                    )
+                    val sampleWords = writingSample.trim().split(Regex("\\s+")).count { it.isNotBlank() }
+                    Text("$sampleWords / 30 palabras", color = if (sampleWords >= 30) Color(0xFF9BE7C4) else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    if (sampleWords >= 30) Text(LocalTextEngine.analyzeStyle(writingSample), color = Color(0xFFB7A9FF), fontSize = 12.sp)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202342)), shape = RoundedCornerShape(20.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -126,14 +145,17 @@ fun HumanizadorApp() {
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
-                            if (input.isBlank()) {
+                            val sampleWords = writingSample.trim().split(Regex("\\s+")).count { it.isNotBlank() }
+                            if (sampleWords < 30) {
+                                Toast.makeText(context, "Escribe al menos 30 palabras en tu muestra personal", Toast.LENGTH_LONG).show()
+                            } else if (input.isBlank()) {
                                 Toast.makeText(context, "Primero escribe o importa un texto", Toast.LENGTH_SHORT).show()
                             } else {
                                 busy = true
                                 scope.launch {
                                     try {
                                         output = withContext(Dispatchers.Default) {
-                                            LocalTextEngine.rewrite(input, style)
+                                            LocalTextEngine.rewrite(input, style, writingSample)
                                         }
                                     } catch (e: Exception) {
                                         Toast.makeText(context, "No se pudo revisar el texto: ${e.message}", Toast.LENGTH_LONG).show()
