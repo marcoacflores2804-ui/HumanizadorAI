@@ -46,8 +46,6 @@ fun HumanizadorApp() {
     var input by remember { mutableStateOf("") }
     var output by remember { mutableStateOf("") }
     var style by remember { mutableStateOf("Natural y conversacional") }
-    var writingProfile by remember { mutableStateOf("") }
-    var showProfile by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
@@ -84,7 +82,7 @@ fun HumanizadorApp() {
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("HUMANIZADOR AI", color = Color(0xFFB7A9FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("HUMANIZADOR", color = Color(0xFFB7A9FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text("Escribe con naturalidad.", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
                     Text("Editor local de escritura", color = Muted, fontSize = 14.sp)
                 }
@@ -124,21 +122,7 @@ fun HumanizadorApp() {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = { showProfile = !showProfile }, modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)) {
-                        Text(if (showProfile) "Ocultar perfil de escritura" else "✎ Configurar mi perfil de escritura")
-                    }
-                    if (showProfile) {
-                        Text("MUESTRA DE TU FORMA DE ESCRIBIR", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = writingProfile, onValueChange = { writingProfile = it },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 110.dp),
-                            placeholder = { Text("Pega un texto escrito por ti para orientar tono, vocabulario y ritmo.", color = Muted) },
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Purple,
-                                unfocusedBorderColor = Color(0xFF454966), focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                        )
-                        Text("Usa una muestra propia y evita incluir datos privados.", color = Muted, fontSize = 11.sp)
-                    }
+                    Text("Motor lingüístico local basado en reglas; no utiliza IA ni conexión a internet.", color = Muted, fontSize = 12.sp)
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
@@ -149,7 +133,7 @@ fun HumanizadorApp() {
                                 scope.launch {
                                     try {
                                         output = withContext(Dispatchers.Default) {
-                                            LocalTextEngine.rewrite(input, style, writingProfile)
+                                            LocalTextEngine.rewrite(input, style)
                                         }
                                     } catch (e: Exception) {
                                         Toast.makeText(context, "No se pudo revisar el texto: ${e.message}", Toast.LENGTH_LONG).show()
