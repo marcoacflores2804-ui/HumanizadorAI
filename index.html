@@ -11,7 +11,7 @@
 <p class="sample">La aplicación ajusta expresiones reconocidas para mejorar claridad y naturalidad. Conserva el paquete Word, su portada, imágenes, tablas y estilos. Al ser un motor local sin IA, no puede parafrasear libremente todo el documento; revisa siempre los cambios.</p>
 <div class="actions"><label class="filebtn" for="preserveWord">Seleccionar documento Word</label><input id="preserveWord" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>
 <div class="result" id="preserveStatus" aria-live="polite">Ningún documento seleccionado.</div>
-<div class="actions"><button class="primary" id="processPreserve" disabled>Procesar y preparar PDF</button></div>
+<div class="actions"><button class="primary" id="processPreserve" disabled>Humanizar Word y preparar PDF</button></div>
 <div class="result" id="pdfStatus" aria-live="polite">Al preparar el PDF se abrirá el diálogo de impresión del navegador; elige “Guardar como PDF”.</div>
 </section>
 <section class="panel">
@@ -32,7 +32,7 @@
 <select id="rewriteMode" style="width:100%;margin-top:7px;padding:12px;border-radius:10px;background:#0b1325;color:var(--text);border:1px solid #34425f">
 <option value="natural">Humanizar redacción (natural y clara)</option><option value="clarity">Claridad y fluidez</option><option value="concise">Más conciso</option><option value="formal">Tono más formal</option><option value="simple">Lenguaje más sencillo</option>
 </select>
-<div class="actions"><button class="primary" id="rewrite">Transformar texto</button><button id="restoreRewrite">Restaurar texto anterior</button></div>
+<div class="actions"><button class="primary" id="rewrite">Humanizar texto</button><button id="restoreRewrite">Restaurar texto anterior</button></div>
 <div class="result" id="rewriteStatus" aria-live="polite">Escribe o pega un texto en el editor y elige un tipo de transformación.</div>
 </section>
 <section class="panel"><div class="toolbar"><strong>Tu texto</strong><span class="stats" id="stats">0 palabras · 0 caracteres</span></div>
