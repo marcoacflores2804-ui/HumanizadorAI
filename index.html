@@ -18,6 +18,16 @@
 <div class="actions"><button class="primary" id="adaptPair">Aplicar estructura y formato</button></div>
 <div class="result" id="pairResult" aria-live="polite">Esta función usa reglas locales; no utiliza IA ni reescribe ideas de forma inteligente.</div>
 </section>
+<section class="panel">
+<div class="toolbar"><strong>Transformar redacción</strong><span class="stats">Motor lingüístico local · sin IA</span></div>
+<p class="sample">Aplica cambios de claridad, concisión o tono formal usando reglas de español. El resultado sustituye el texto del editor; puedes deshacerlo con el botón de restaurar.</p>
+<label for="rewriteMode"><strong>Tipo de transformación</strong></label>
+<select id="rewriteMode" style="width:100%;margin-top:7px;padding:12px;border-radius:10px;background:#0b1325;color:var(--text);border:1px solid #34425f">
+<option value="clarity">Claridad y fluidez</option><option value="concise">Más conciso</option><option value="formal">Tono más formal</option><option value="simple">Lenguaje más sencillo</option>
+</select>
+<div class="actions"><button class="primary" id="rewrite">Transformar texto</button><button id="restoreRewrite">Restaurar texto anterior</button></div>
+<div class="result" id="rewriteStatus" aria-live="polite">Escribe o pega un texto en el editor y elige un tipo de transformación.</div>
+</section>
 <section class="panel"><div class="toolbar"><strong>Tu texto</strong><span class="stats" id="stats">0 palabras · 0 caracteres</span></div>
 <textarea id="editor" placeholder="Escribe o pega aquí tu texto…"></textarea>
 <div class="actions"><button class="primary" id="clean">Mejorar formato</button><button id="analyze">Analizar mi escritura</button>
@@ -144,6 +154,90 @@ $('adaptPair').onclick=()=>{
  $('pairResult').textContent='Adaptación estructural terminada. '+profile+'Se conservaron las palabras e ideas del segundo documento; se ajustaron cortes de párrafo, encabezados detectables, listas y puntuación. Las instrucciones de reescritura semántica o cambio de tono no pueden ejecutarse con fiabilidad sin un motor de lenguaje. Revisa el resultado y guarda una copia Word.';
  $('result').textContent='Estructura del documento adaptada con reglas locales. Revisa antes de usarlo.';
 };;
+
+
+// Motor local de transformación de redacción. No usa modelos ni servicios externos.
+let previousRewrite = null;
+const phraseRules = {
+ clarity: [
+  [/\\bdebido al hecho de que\\b/gi,'porque'],
+  [/\\ba pesar del hecho de que\\b/gi,'aunque'],
+  [/\\bcon el objetivo de\\b/gi,'para'],
+  [/\\bcon la finalidad de\\b/gi,'para'],
+  [/\\ben el momento actual\\b/gi,'actualmente'],
+  [/\\ben la actualidad\\b/gi,'hoy en día'],
+  [/\\btiene la capacidad de\\b/gi,'puede'],
+  [/\\bllevar a cabo\\b/gi,'realizar'],
+  [/\\bproceder a\\b/gi,''],
+  [/\\bde manera,? forma\\b/gi,''],
+  [/\\bes importante mencionar que\\b/gi,''],
+  [/\\bcabe señalar que\\b/gi,'']
+ ],
+ concise: [
+  [/\\bdebido al hecho de que\\b/gi,'porque'],
+  [/\\bcon el objetivo de\\b/gi,'para'],
+  [/\\bcon la finalidad de\\b/gi,'para'],
+  [/\\ba pesar del hecho de que\\b/gi,'aunque'],
+  [/\\ben virtud de que\\b/gi,'porque'],
+  [/\\bde manera conjunta\\b/gi,'juntos'],
+  [/\\ben el caso de que\\b/gi,'si'],
+  [/\\buna gran cantidad de\\b/gi,'muchos'],
+  [/\\bcon respecto a\\b/gi,'sobre'],
+  [/\\ben relación con\\b/gi,'sobre'],
+  [/\\bcon la intención de\\b/gi,'para'],
+  [/\\bpor un periodo de tiempo de\\b/gi,'durante']
+ ],
+ formal: [
+  [/\\bpero\\b/gi,'sin embargo'],
+  [/\\bpor eso\\b/gi,'por ese motivo'],
+  [/\\bademás de eso\\b/gi,'asimismo'],
+  [/\\bde todos modos\\b/gi,'no obstante'],
+  [/\\bpor ejemplo\\b/gi,'a modo de ejemplo'],
+  [/\\bmostrar\\b/gi,'presentar'],
+  [/\\bdecir\\b/gi,'señalar']
+ ],
+ simple: [
+  [/\\butilizar\\b/gi,'usar'],
+  [/\\bimplementar\\b/gi,'poner en práctica'],
+  [/\\bposteriormente\\b/gi,'después'],
+  [/\\bpreviamente\\b/gi,'antes'],
+  [/\\badicionalmente\\b/gi,'además'],
+  [/\\bpor consiguiente\\b/gi,'por eso'],
+  [/\\bno obstante\\b/gi,'pero'],
+  [/\\bmediante\\b/gi,'por medio de'],
+  [/\\bconstituye\\b/gi,'es']
+ ]
+};
+function transformSpanish(text, mode) {
+ let out = text.replace(/\\r/g,'').replace(/[ \\t]+/g,' ').replace(/\\n{3,}/g,'\\n\\n');
+ const rules = phraseRules[mode] || phraseRules.clarity;
+ for (const [pattern,replacement] of rules) out = out.replace(pattern,replacement);
+ // Elimina duplicaciones accidentales de palabras consecutivas sin alterar el sentido.
+ out = out.replace(/\\b([\\p{L}]{2,})(\\s+\\1\\b)+/giu,'$1');
+ // Corrige espacios y puntuación, preservando párrafos.
+ out = out.replace(/ +([,.;:!?])/g,'$1').replace(/([,;:])(?=\\S)/g,'$1 ').replace(/([.!?])(?=[A-ZÁÉÍÓÚÜÑ])/g,'$1 ');
+ out = out.replace(/(^|[.!?]\\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+ out = out.replace(/\\s+([.!?])/g,'$1').replace(/ {2,}/g,' ').trim();
+ return out;
+}
+$('rewrite').onclick = () => {
+ const original = editor.value;
+ if(words(original).length < 8) { $('rewriteStatus').textContent='Escribe al menos 8 palabras para transformar el texto.'; return; }
+ const mode = $('rewriteMode').value;
+ const result = transformSpanish(original,mode);
+ if(result === original) { $('rewriteStatus').textContent='No se encontraron patrones de esta categoría. Prueba otro tipo de transformación o revisa el texto manualmente.'; return; }
+ previousRewrite = original;
+ editor.value = result; update();
+ const changed = Math.max(0,original.length-result.length);
+ const labels = {clarity:'claridad y fluidez',concise:'concisión',formal:'tono formal',simple:'lenguaje sencillo'};
+ $('rewriteStatus').textContent='Transformación aplicada ('+labels[mode]+'). Se ajustaron expresiones y formato; revisa el significado antes de usar el resultado. Diferencia de longitud: '+changed+' caracteres.';
+ $('result').textContent='Redacción transformada mediante reglas locales.';
+};
+$('restoreRewrite').onclick = () => {
+ if(previousRewrite === null) { $('rewriteStatus').textContent='Todavía no hay una transformación que restaurar.'; return; }
+ editor.value=previousRewrite; previousRewrite=null; update();
+ $('rewriteStatus').textContent='Se restauró el texto anterior.';
+};
 
 update();
 </script></body></html>
