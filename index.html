@@ -88,23 +88,62 @@ $('targetDoc').onchange=async e=>{
 };
 $('adaptPair').onclick=()=>{
  if(!referenceText||!targetText){$('pairResult').textContent='Primero carga los dos documentos Word.';return;}
- const refParas=referenceText.split(/\\n+/).map(x=>x.trim()).filter(Boolean);
- const refSentences=referenceText.split(/[.!?]+/).filter(x=>x.trim());
- const avgWordsPara=refParas.length?words(referenceText).length/refParas.length:100;
- const avgSentPara=refParas.length?refSentences.length/refParas.length:3;
  const instruction=$('pairInstruction').value.toLocaleLowerCase('es');
- let sentences=targetText.replace(/\\s+/g,' ').match(/[^.!?]+[.!?]?/g)||[];
- sentences=sentences.map(x=>x.trim()).filter(Boolean);
- let groupSize=Math.max(1,Math.min(8,Math.round(avgSentPara)));
- if(/párrafos? (muy )?cortos|párrafos? breves/.test(instruction))groupSize=1;
- if(/párrafos? largos|párrafos? extensos/.test(instruction))groupSize=Math.min(8,Math.max(3,groupSize+2));
- const paragraphs=[];
- for(let i=0;i<sentences.length;i+=groupSize)paragraphs.push(sentences.slice(i,i+groupSize).join(' ').trim());
- let output=paragraphs.join('\\n\\n').replace(/[ \\t]+/g,' ').replace(/([,.!?;:])\\1+/g,'$1').replace(/\\s+([,.!?;:])/g,'$1').replace(/(^|[.!?]\\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
- editor.value=output;update();
- $('pairResult').textContent='Listo: se aplicó una organización de párrafos basada en "'+referenceName+'". El segundo documento conserva sus palabras e ideas; se ajustaron principalmente los cortes de párrafo y detalles básicos de puntuación. Referencia: '+Math.round(avgWordsPara)+' palabras por párrafo en promedio. Revisa el resultado y guarda una copia Word.';
- $('result').textContent='Documento adaptado con reglas locales. Revisa antes de usarlo.';
-};
+ const cleanLines=t=>t.replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
+ const refLines=cleanLines(referenceText), targetLines=cleanLines(targetText);
+ const isHeading=line=>line.length<100&&!/[.!?;:]$/.test(line)&&line.split(/\s+/).length<=12;
+ const isList=line=>/^([-*•▪◦]|\d+[.)])\s/.test(line);
+ const refParas=referenceText.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ const refBody=refParas.filter(x=>!isHeading(x)&&!isList(x));
+ const refSentences=refBody.flatMap(p=>p.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]);
+ const avgSentences=refBody.length?refSentences.length/refBody.length:3;
+ const avgWords=refBody.length?refBody.reduce((n,p)=>n+words(p).length,0)/refBody.length:90;
+ const refHasBullets=refLines.filter(isList).length>=2;
+ const refHasHeadings=refLines.filter(isHeading).length>=2;
+ let sentencesPerParagraph=Math.max(1,Math.min(8,Math.round(avgSentences)));
+ let maxWords=Math.max(25,Math.min(220,Math.round(avgWords)));
+ if(/párrafos? (muy )?cortos|párrafos? breves/.test(instruction)){sentencesPerParagraph=1;maxWords=Math.min(maxWords,55);}
+ if(/párrafos? largos|párrafos? extensos/.test(instruction)){sentencesPerParagraph=Math.min(8,Math.max(3,sentencesPerParagraph+2));maxWords=Math.max(maxWords,110);}
+ if(/oraciones? cortas|frases? cortas/.test(instruction))sentencesPerParagraph=Math.max(1,Math.min(2,sentencesPerParagraph));
+ if(/oraciones? largas|frases? largas/.test(instruction))sentencesPerParagraph=Math.min(8,Math.max(3,sentencesPerParagraph));
+ const sourceLines=targetText.replace(/\r/g,'').split('\n');
+ const blocks=[];let current=[];
+ const flush=()=>{if(current.length){blocks.push({type:'body',text:current.join(' ').trim()});current=[];}};
+ for(const raw of sourceLines){
+  const line=raw.trim();
+  if(!line){flush();continue;}
+  if(isHeading(line)){flush();blocks.push({type:'heading',text:line});}
+  else if(isList(line)){flush();blocks.push({type:'list',text:line});}
+  else current.push(line);
+ }
+ flush();
+ const output=[];
+ for(const block of blocks){
+  if(block.type==='heading'){output.push(block.text.toLocaleUpperCase('es'));continue;}
+  if(block.type==='list'){output.push(block.text.replace(/^\* /,'• '));continue;}
+  const parts=block.text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[block.text];
+  let group=[],count=0;
+  const emit=()=>{if(group.length){output.push(group.join(' ').trim());group=[];count=0;}};
+  for(const part of parts){
+   const sentence=part.trim();if(!sentence)continue;
+   if(group.length&&(group.length>=sentencesPerParagraph||count+words(sentence).length>maxWords))emit();
+   group.push(sentence);count+=words(sentence).length;
+  }
+  emit();
+ }
+ let result=output.join('\n\n')
+  .replace(/[ \t]+/g,' ')
+  .replace(/([,.!?;:])\1+/g,'$1')
+  .replace(/\s+([,.!?;:])/g,'$1')
+  .replace(/([.!?])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g,'$1 $2')
+  .replace(/(^|[.!?]\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+ if(/sin títulos|quitar títulos/.test(instruction))result=result.split('\n').filter(x=>!(x===x.toLocaleUpperCase('es')&&x.length<100&&!/[.!?]$/.test(x))).join('\n');
+ if(/quitar viñetas|sin viñetas/.test(instruction))result=result.replace(/^•\s/gm,'');
+ editor.value=result;update();
+ const profile='Referencia analizada: '+refParas.length+' párrafos, aproximadamente '+Math.round(avgWords)+' palabras por párrafo y '+sentencesPerParagraph+' oraciones por párrafo en el resultado. '+(refHasHeadings?'Se detectaron encabezados. ':'')+(refHasBullets?'Se detectaron listas. ':'');
+ $('pairResult').textContent='Adaptación estructural terminada. '+profile+'Se conservaron las palabras e ideas del segundo documento; se ajustaron cortes de párrafo, encabezados detectables, listas y puntuación. Las instrucciones de reescritura semántica o cambio de tono no pueden ejecutarse con fiabilidad sin un motor de lenguaje. Revisa el resultado y guarda una copia Word.';
+ $('result').textContent='Estructura del documento adaptada con reglas locales. Revisa antes de usarlo.';
+};;
 
 update();
 </script></body></html>
