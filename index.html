@@ -42,6 +42,14 @@
 <label class="filebtn" for="docxFile">Abrir Word</label><input id="docxFile" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <button id="copy">Copiar</button><button id="save">Guardar TXT</button><button id="saveDocx">Guardar Word</button><button id="savePdf">Guardar PDF</button><button id="clear">Borrar</button></div>
 <div class="result" id="result" aria-live="polite">El procesamiento se realiza en este dispositivo.</div></section>
+<section class="panel" id="aiDetectorPanel">
+<div class="toolbar"><strong>Detector / analizador de patrones de IA</strong><span class="stats">Análisis local · sin IA ni APIs</span></div>
+<p class="sample">Carga un Word o PDF, o analiza el texto del editor. Revisa uniformidad, repeticiones, longitud de oraciones y diversidad léxica. El resultado es orientativo: ningún detector puede determinar con certeza si un texto fue escrito por una persona o por IA.</p>
+<div class="actions"><label class="filebtn" for="detectorFile">Cargar Word o PDF</label><input id="detectorFile" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><button class="primary" id="runDetector">Analizar texto del editor</button><button id="downloadDetector">Descargar informe TXT</button></div>
+<div class="metrics"><div class="metric"><b id="detScore">—</b><span>Indicadores encontrados</span></div><div class="metric"><b id="detUniform">—</b><span>Uniformidad de oraciones</span></div><div class="metric"><b id="detRepeat">—</b><span>Repetición de frases</span></div></div>
+<div class="result" id="detectorResult" aria-live="polite">Carga un archivo o analiza el texto del editor.</div>
+<p class="notice">No ofrece porcentaje de probabilidad ni veredicto de autoría. Un texto humano puede mostrar estos patrones y un texto generado por IA puede no mostrarlos.</p>
+</section>
 <section class="panel"><div class="toolbar"><strong>Análisis de escritura</strong><span class="stats">Muestra recomendada: 30 palabras o más</span></div>
 <p class="sample">Pega un texto tuyo de al menos 30 palabras para analizar algunos rasgos básicos de escritura.</p>
 <div class="metrics"><div class="metric"><b id="words">—</b><span>Palabras</span></div><div class="metric"><b id="avg">—</b><span>Palabras por oración</span></div><div class="metric"><b id="vocab">—</b><span>Vocabulario distinto</span></div></div><div class="result" id="analysis">Aún no hay análisis.</div></section>
@@ -294,6 +302,55 @@ async function printDocxAsPdf(blob){
  frame.contentWindow.focus();frame.contentWindow.print();
  setTimeout(()=>frame.remove(),60000);
 }
+
+let detectorReport='';
+function analyzePatterns(text){
+ const ws=words(text),sent=(text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]).map(x=>words(x).length).filter(Boolean);
+ const paras=text.split(/\\n\\s*\\n/).map(x=>x.trim()).filter(Boolean);
+ if(ws.length<50)throw Error('Se necesitan al menos 50 palabras para un análisis orientativo.');
+ const avg=sent.reduce((a,b)=>a+b,0)/Math.max(1,sent.length);
+ const variance=sent.reduce((a,b)=>a+Math.pow(b-avg,2),0)/Math.max(1,sent.length);
+ const sd=Math.sqrt(variance),cv=avg?sd/avg:0;
+ const norm=ws.map(x=>x.toLocaleLowerCase('es').replace(/[^\\p{L}]/gu,'')).filter(x=>x.length>2);
+ const diversity=new Set(norm).size/Math.max(1,norm.length);
+ const lower=text.toLocaleLowerCase('es');
+ const tokens=lower.match(/\\b[\\p{L}]{3,}\\b/gu)||[];
+ const counts={};for(let i=0;i<tokens.length-1;i++){const p=tokens[i]+' '+tokens[i+1];counts[p]=(counts[p]||0)+1}
+ const repeats=Object.entries(counts).filter(([p,n])=>n>=3&&!['de la','en el','que la','por el','a la','de los','en la'].includes(p)).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ const pLens=paras.map(p=>words(p).length),pAvg=pLens.reduce((a,b)=>a+b,0)/Math.max(1,pLens.length);
+ const pCv=Math.sqrt(pLens.reduce((a,b)=>a+Math.pow(b-pAvg,2),0)/Math.max(1,pLens.length))/Math.max(1,pAvg);
+ const signals=[];
+ if(cv<0.38&&sent.length>=8)signals.push('Longitud de oraciones muy uniforme');
+ if(diversity<0.42)signals.push('Diversidad léxica relativamente baja');
+ if(pCv<0.30&&paras.length>=4)signals.push('Párrafos de longitud muy similar');
+ if(repeats.length)signals.push('Repetición de combinaciones de palabras');
+ if((text.match(/\\b(en conclusión|por otro lado|asimismo|además|en este sentido)\\b/gi)||[]).length>=5)signals.push('Uso frecuente de conectores formales recurrentes');
+ const level=signals.length>=4?'Varios patrones':signals.length>=2?'Algunos patrones':'Pocos patrones';
+ const detail='Palabras: '+ws.length+'; oraciones: '+sent.length+'; diversidad léxica: '+(diversity*100).toFixed(1)+'%; variación de longitud oracional: '+(cv*100).toFixed(1)+'%.';
+ return {signals,level,detail,repeats};
+}
+function renderDetector(text){
+ try{
+  const a=analyzePatterns(text);
+  $('detScore').textContent=a.signals.length;
+  $('detUniform').textContent=a.signals.includes('Longitud de oraciones muy uniforme')?'Alta':'No alta';
+  $('detRepeat').textContent=a.repeats.length?'Sí':'No';
+  detectorReport='ANÁLISIS ORIENTATIVO DE PATRONES\\n'+a.level+'\\n'+a.detail+'\\n\\nIndicadores:\\n'+(a.signals.length?a.signals.map(x=>'• '+x).join('\\n'):'• No se detectaron patrones destacados.')+'\\n\\nFrases repetidas:\\n'+(a.repeats.length?a.repeats.map(x=>'• '+x[0]+' ('+x[1]+' veces)').join('\\n'):'• Ninguna destacada')+'\\n\\nEste informe no determina autoría ni distingue de forma fiable entre escritura humana y texto generado por IA.';
+  $('detectorResult').textContent=a.level+'. '+a.detail+' '+(a.signals.length?a.signals.join('; '):'No se detectaron indicadores destacados.')+' Recuerda: esto no demuestra que el texto sea humano o generado por IA.';
+ }catch(e){$('detectorResult').textContent=e.message}
+}
+$('runDetector').onclick=()=>renderDetector(editor.value);
+$('detectorFile').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{const text=await extractDocxText(file);renderDetector(text);$('detectorResult').textContent='Archivo analizado: '+file.name+'. '+$('detectorResult').textContent}
+ catch(err){$('detectorResult').textContent='No se pudo leer el archivo: '+err.message}
+ e.target.value='';
+};
+$('downloadDetector').onclick=()=>{
+ if(!detectorReport){$('detectorResult').textContent='Primero realiza un análisis.';return}
+ downloadBlob(new Blob([detectorReport],{type:'text/plain;charset=utf-8'}),'informe_analisis_patrones.txt');
+};
+
 
 update();
 </script></body></html>
