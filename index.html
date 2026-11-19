@@ -46,9 +46,9 @@
 <div class="toolbar"><strong>Detector / analizador de patrones de IA</strong><span class="stats">Análisis local · sin IA ni APIs</span></div>
 <p class="sample">Carga un Word o PDF, o analiza el texto del editor. Revisa uniformidad, repeticiones, longitud de oraciones y diversidad léxica. El resultado es orientativo: ningún detector puede determinar con certeza si un texto fue escrito por una persona o por IA.</p>
 <div class="actions"><label class="filebtn" for="detectorFile">Cargar Word o PDF</label><input id="detectorFile" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><button class="primary" id="runDetector">Analizar texto del editor</button><button id="downloadDetector">Descargar informe TXT</button></div>
-<div class="metrics"><div class="metric"><b id="detScore">—</b><span>Indicadores encontrados</span></div><div class="metric"><b id="detUniform">—</b><span>Uniformidad de oraciones</span></div><div class="metric"><b id="detRepeat">—</b><span>Repetición de frases</span></div></div>
+<div class="metrics"><div class="metric"><b id="detPercent">—</b><span>Índice de patrones asociados con IA</span></div><div class="metric"><b id="detScore">—</b><span>Indicadores encontrados</span></div><div class="metric"><b id="detUniform">—</b><span>Uniformidad de oraciones</span></div><div class="metric"><b id="detRepeat">—</b><span>Repetición de frases</span></div></div>
 <div class="result" id="detectorResult" aria-live="polite">Carga un archivo o analiza el texto del editor.</div><div class="result" id="detectorDetails" aria-live="polite"></div>
-<p class="notice">No ofrece porcentaje de probabilidad ni veredicto de autoría. Un texto humano puede mostrar estos patrones y un texto generado por IA puede no mostrarlos.</p>
+<p class="notice">El índice es una puntuación heurística de patrones observados, no una probabilidad de autoría. No demuestra qué porcentaje del documento fue escrito por IA.</p>
 </section>
 <section class="panel"><div class="toolbar"><strong>Análisis de escritura</strong><span class="stats">Muestra recomendada: 30 palabras o más</span></div>
 <p class="sample">Pega un texto tuyo de al menos 30 palabras para analizar algunos rasgos básicos de escritura.</p>
@@ -339,17 +339,19 @@ function analyzePatterns(text){
   return {i:i+1,words:pw.length,signals:localSignals,excerpt:p.slice(0,190)+(p.length>190?'…':'')};
  }).filter(p=>p.signals.length);
  const level=signals.length>=4?'Muchos indicadores estructurales':signals.length>=2?'Algunos indicadores estructurales':'Pocos indicadores estructurales';
+ const metricWeights=[cv<0.32&&sent.length>=10?20:0,diversity<0.43?20:0,pCv<0.28&&paras.length>=5?15:0,repeats.length>=2?15:0,startDiversity<0.45&&sent.length>=10?15:0,connectors>=Math.max(5,Math.ceil(sent.length*0.22))?15:0]; const indexScore=metricWeights.reduce((x,y)=>x+y,0);
  const detail='Palabras: '+ws.length+'; oraciones: '+sent.length+'; párrafos: '+paras.length+'; diversidad léxica: '+(diversity*100).toFixed(1)+'%; variación de longitud oracional: '+(cv*100).toFixed(1)+'%; variación de longitud de párrafos: '+(pCv*100).toFixed(1)+'%.';
- return {signals,level,detail,repeats,paragraphFindings,stats:{cv,diversity,pCv,startDiversity,connectors}};
+ return {signals,level,detail,repeats,paragraphFindings,indexScore,stats:{cv,diversity,pCv,startDiversity,connectors}};
 }
 function renderDetector(text){
  try{
   const a=analyzePatterns(text);
+  $('detPercent').textContent=a.indexScore+'%';
   $('detScore').textContent=a.signals.length;
   $('detUniform').textContent=a.stats.cv<0.32?'Alta':'Variable';
   $('detRepeat').textContent=a.repeats.length?'Sí':'No';
-  detectorReport='INFORME DE ANÁLISIS LINGÜÍSTICO (NO ES UN VEREDICTO DE AUTORÍA)\n'+a.level+'\n'+a.detail+'\n\nIndicadores globales:\n'+(a.signals.length?a.signals.map(x=>'• '+x).join('\n'):'• No se detectaron patrones destacados.')+'\n\nSecuencias repetidas:\n'+(a.repeats.length?a.repeats.map(x=>'• '+x[0]+' ('+x[1]+' veces)').join('\n'):'• Ninguna destacada')+'\n\nPárrafos para revisar:\n'+(a.paragraphFindings.length?a.paragraphFindings.map(p=>'Párrafo '+p.i+' ('+p.words+' palabras): '+p.signals.join('; ')+'\n'+p.excerpt).join('\n\n'):'• No se señalaron párrafos.')+'\n\nIMPORTANTE: estos rasgos aparecen tanto en textos humanos como generados. No constituyen una probabilidad ni prueban autoría.';
-  $('detectorResult').textContent=a.level+'. '+a.detail+' '+(a.signals.length?a.signals.join('; '):'No se detectaron indicadores destacados.')+' Estos patrones no prueban autoría.';
+  detectorReport='INFORME DE ANÁLISIS LINGÜÍSTICO (NO ES UN VEREDICTO DE AUTORÍA)\nÍndice heurístico de patrones asociados con IA: '+a.indexScore+'% (no es probabilidad ni porcentaje real de autoría)\n'+a.level+'\n'+a.detail+'\n\nIndicadores globales:\n'+(a.signals.length?a.signals.map(x=>'• '+x).join('\n'):'• No se detectaron patrones destacados.')+'\n\nSecuencias repetidas:\n'+(a.repeats.length?a.repeats.map(x=>'• '+x[0]+' ('+x[1]+' veces)').join('\n'):'• Ninguna destacada')+'\n\nPárrafos para revisar:\n'+(a.paragraphFindings.length?a.paragraphFindings.map(p=>'Párrafo '+p.i+' ('+p.words+' palabras): '+p.signals.join('; ')+'\n'+p.excerpt).join('\n\n'):'• No se señalaron párrafos.')+'\n\nIMPORTANTE: estos rasgos aparecen tanto en textos humanos como generados. No constituyen una probabilidad ni prueban autoría.';
+  $('detectorResult').textContent='Índice de patrones asociados con IA: '+a.indexScore+'% (no es probabilidad de autoría). '+a.level+'. '+a.detail+' '+(a.signals.length?a.signals.join('; '):'No se detectaron indicadores destacados.')+' Estos patrones no prueban autoría.';
   $('detectorDetails').textContent='PÁRRAFOS QUE CONVIENE REVISAR:\n'+(a.paragraphFindings.length?a.paragraphFindings.map(p=>'Párrafo '+p.i+': '+p.signals.join('; ')+' — '+p.excerpt).join('\n\n'):'No se señalaron párrafos específicos.')+'\n\nLas métricas describen el estilo, no la procedencia del texto.';
  }catch(e){$('detectorResult').textContent=e.message;$('detectorDetails').textContent='';detectorReport=''}
 }
