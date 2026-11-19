@@ -5,6 +5,19 @@
 </style></head>
 <body><main>
 <header class="top"><div class="logo">H</div><div><h1>Humanizador Sin IA</h1><p class="sub">Editor y analizador de escritura · procesamiento local</p></div></header>
+<section class="panel">
+<div class="toolbar"><strong>Adaptar un documento usando otro como referencia</strong><span class="stats">2 documentos Word</span></div>
+<p class="sample">Sube el documento de referencia y el documento que quieres adaptar. Después escribe qué características quieres tomar del primero.</p>
+<div class="actions">
+<label class="filebtn" for="referenceDoc">1. Documento de referencia</label><input id="referenceDoc" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+<label class="filebtn" for="targetDoc">2. Documento que adaptarás</label><input id="targetDoc" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+</div>
+<div class="result" id="pairStatus" aria-live="polite">Aún no has cargado los dos documentos.</div>
+<label for="pairInstruction"><strong>Instrucciones</strong></label>
+<textarea id="pairInstruction" style="min-height:105px;margin-top:8px" placeholder="Ejemplo: toma del primer documento la organización de los párrafos, la longitud aproximada y el tono formal. Conserva las ideas y los datos del segundo documento."></textarea>
+<div class="actions"><button class="primary" id="adaptPair">Aplicar estructura y formato</button></div>
+<div class="result" id="pairResult" aria-live="polite">Esta función usa reglas locales; no utiliza IA ni reescribe ideas de forma inteligente.</div>
+</section>
 <section class="panel"><div class="toolbar"><strong>Tu texto</strong><span class="stats" id="stats">0 palabras · 0 caracteres</span></div>
 <textarea id="editor" placeholder="Escribe o pega aquí tu texto…"></textarea>
 <div class="actions"><button class="primary" id="clean">Mejorar formato</button><button id="analyze">Analizar mi escritura</button>
@@ -40,5 +53,58 @@ $('saveDocx').onclick=()=>{try{const paragraphs=editor.value.split(/\r?\n/).map(
 {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
 {name:'word/document.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+paragraphs+'<w:sectPr/></w:body></w:document>'}
 ];downloadBlob(zipStore(files),'mi-texto.docx');$('result').textContent='Documento Word creado.'}catch(err){$('result').textContent='No se pudo crear el DOCX: '+err.message}};
+
+// Adaptación local de dos documentos: toma métricas estructurales del primero y las aplica al segundo.
+let referenceText='', targetText='', referenceName='', targetName='';
+async function extractDocxText(file){
+ const data=await readZipFile(await file.arrayBuffer(),'word/document.xml');
+ const xml=new DOMParser().parseFromString(new TextDecoder().decode(data),'application/xml');
+ if(xml.querySelector('parsererror'))throw Error('No se pudo leer el contenido Word.');
+ const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+ return [...xml.getElementsByTagNameNS(ns,'p')].map(p=>{
+  let out='';
+  for(const node of p.childNodes)if(node.nodeType===1){
+   if(node.localName==='r')for(const x of node.childNodes){
+    if(x.nodeType===1&&x.localName==='t')out+=x.textContent;
+    else if(x.nodeType===1&&x.localName==='tab')out+='\\t';
+    else if(x.nodeType===1&&x.localName==='br')out+='\\n';
+   }
+   else if(node.localName==='hyperlink')out+=[...node.getElementsByTagNameNS(ns,'t')].map(x=>x.textContent).join('');
+  }
+  return out;
+ }).join('\\n').trim();
+}
+$('referenceDoc').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{referenceText=await extractDocxText(file);referenceName=file.name;$('pairStatus').textContent='Referencia cargada: '+referenceName+' ('+words(referenceText).length+' palabras).';}
+ catch(err){referenceText='';$('pairStatus').textContent='Error en documento de referencia: '+err.message;}
+ e.target.value='';
+};
+$('targetDoc').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{targetText=await extractDocxText(file);targetName=file.name;$('pairStatus').textContent='Documento que adaptarás cargado: '+targetName+' ('+words(targetText).length+' palabras).';}
+ catch(err){targetText='';$('pairStatus').textContent='Error en el segundo documento: '+err.message;}
+ e.target.value='';
+};
+$('adaptPair').onclick=()=>{
+ if(!referenceText||!targetText){$('pairResult').textContent='Primero carga los dos documentos Word.';return;}
+ const refParas=referenceText.split(/\\n+/).map(x=>x.trim()).filter(Boolean);
+ const refSentences=referenceText.split(/[.!?]+/).filter(x=>x.trim());
+ const avgWordsPara=refParas.length?words(referenceText).length/refParas.length:100;
+ const avgSentPara=refParas.length?refSentences.length/refParas.length:3;
+ const instruction=$('pairInstruction').value.toLocaleLowerCase('es');
+ let sentences=targetText.replace(/\\s+/g,' ').match(/[^.!?]+[.!?]?/g)||[];
+ sentences=sentences.map(x=>x.trim()).filter(Boolean);
+ let groupSize=Math.max(1,Math.min(8,Math.round(avgSentPara)));
+ if(/párrafos? (muy )?cortos|párrafos? breves/.test(instruction))groupSize=1;
+ if(/párrafos? largos|párrafos? extensos/.test(instruction))groupSize=Math.min(8,Math.max(3,groupSize+2));
+ const paragraphs=[];
+ for(let i=0;i<sentences.length;i+=groupSize)paragraphs.push(sentences.slice(i,i+groupSize).join(' ').trim());
+ let output=paragraphs.join('\\n\\n').replace(/[ \\t]+/g,' ').replace(/([,.!?;:])\\1+/g,'$1').replace(/\\s+([,.!?;:])/g,'$1').replace(/(^|[.!?]\\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+ editor.value=output;update();
+ $('pairResult').textContent='Listo: se aplicó una organización de párrafos basada en "'+referenceName+'". El segundo documento conserva sus palabras e ideas; se ajustaron principalmente los cortes de párrafo y detalles básicos de puntuación. Referencia: '+Math.round(avgWordsPara)+' palabras por párrafo en promedio. Revisa el resultado y guarda una copia Word.';
+ $('result').textContent='Documento adaptado con reglas locales. Revisa antes de usarlo.';
+};
+
 update();
 </script></body></html>
