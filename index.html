@@ -2,14 +2,14 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><meta name="description" content="Editor de texto local sin inteligencia artificial."><title>Humanizador Sin IA</title>
 <style>
 :root{color-scheme:dark;--line:#2b3852;--text:#eef3ff;--muted:#9aa9c2;--accent:#9ba9ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#172344,#0b1020 58%);color:var(--text);font:16px/1.5 system-ui,sans-serif;min-height:100vh}main{width:min(100% - 24px,980px);margin:auto;padding:24px 0 48px}.top{display:flex;align-items:center;gap:14px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:15px;background:linear-gradient(135deg,#9ba9ff,#6e7df0);display:grid;place-items:center;color:#111827;font-size:24px;font-weight:900}.top h1{font-size:clamp(22px,4vw,30px);margin:0}.sub,.stats,.notice,.sample{color:var(--muted)}.sub{margin:2px 0;font-size:14px}.panel{background:linear-gradient(180deg,#18233a,#121a2d);border:1px solid var(--line);border-radius:19px;padding:17px;margin-bottom:15px;box-shadow:0 18px 55px #0003}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.stats{font-size:12px}textarea{width:100%;min-height:300px;resize:vertical;border:1px solid #34425f;border-radius:14px;background:#0b1325;color:var(--text);padding:16px;font:16px/1.65 system-ui,sans-serif;outline:none}textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px #8b9cff22}textarea::placeholder{color:#71809b}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}button,.filebtn{border:1px solid var(--line);background:#202d48;color:var(--text);border-radius:11px;padding:11px 14px;font-weight:650;font-size:14px;cursor:pointer}button.primary{background:var(--accent);color:#10172a;border-color:transparent}button:hover,.filebtn:hover{filter:brightness(1.12)}input[type=file]{display:none}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#0d1629;border:1px solid var(--line);border-radius:13px;padding:13px}.metric b{display:block;font-size:23px}.metric span{font-size:12px;color:var(--muted)}.result{color:var(--muted);font-size:14px;min-height:22px;margin-top:12px}.notice{font-size:12px;margin:17px 2px}.sample{font-size:14px;margin:0 0 10px}@media(max-width:560px){main{padding-top:16px}.panel{padding:13px}textarea{min-height:270px}.actions button,.filebtn{flex:1 1 auto}.metric{padding:9px}.metric b{font-size:20px}}
-</style></head>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script></head>
 <body><main>
 <header class="top"><div class="logo">H</div><div><h1>Humanizador Sin IA</h1><p class="sub">Editor y analizador de escritura · procesamiento local</p></div></header>
 <section class="panel">
-<div class="toolbar"><strong>Adaptar un documento usando otro como referencia</strong><span class="stats">2 documentos Word</span></div>
+<div class="toolbar"><strong>Adaptar un documento usando otro como referencia</strong><span class="stats">2 documentos PDF o Word</span></div>
 <p class="sample">Sube el documento de referencia y el documento que quieres adaptar. Después escribe qué características quieres tomar del primero.</p>
 <div class="actions">
-<label class="filebtn" for="referenceDoc">1. Documento de referencia</label><input id="referenceDoc" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+<label class="filebtn" for="referenceDoc">1. Documento de referencia</label><input id="referenceDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <label class="filebtn" for="targetDoc">2. Documento que adaptarás</label><input id="targetDoc" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 </div>
 <div class="result" id="pairStatus" aria-live="polite">Aún no has cargado los dos documentos.</div>
@@ -33,12 +33,12 @@
 <div class="actions"><button class="primary" id="clean">Mejorar formato</button><button id="analyze">Analizar mi escritura</button>
 <label class="filebtn" for="file">Abrir TXT / MD</label><input id="file" type="file" accept=".txt,.md,text/plain,text/markdown">
 <label class="filebtn" for="docxFile">Abrir Word</label><input id="docxFile" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-<button id="copy">Copiar</button><button id="save">Guardar TXT</button><button id="saveDocx">Guardar Word</button><button id="clear">Borrar</button></div>
+<button id="copy">Copiar</button><button id="save">Guardar TXT</button><button id="saveDocx">Guardar Word</button><button id="savePdf">Guardar PDF</button><button id="clear">Borrar</button></div>
 <div class="result" id="result" aria-live="polite">El procesamiento se realiza en este dispositivo.</div></section>
 <section class="panel"><div class="toolbar"><strong>Análisis de escritura</strong><span class="stats">Muestra recomendada: 30 palabras o más</span></div>
 <p class="sample">Pega un texto tuyo de al menos 30 palabras para analizar algunos rasgos básicos de escritura.</p>
 <div class="metrics"><div class="metric"><b id="words">—</b><span>Palabras</span></div><div class="metric"><b id="avg">—</b><span>Palabras por oración</span></div><div class="metric"><b id="vocab">—</b><span>Vocabulario distinto</span></div></div><div class="result" id="analysis">Aún no hay análisis.</div></section>
-<p class="notice">Esta herramienta aplica reglas sencillas de formato. No genera contenido con IA ni garantiza resultados frente a detectores automáticos. Revisa siempre los cambios. La importación y exportación Word admite documentos .docx de texto; no conserva imágenes, tablas ni diseños complejos.</p>
+<p class="notice">Esta herramienta aplica reglas sencillas de formato. No genera contenido con IA ni garantiza resultados frente a detectores automáticos. Revisa siempre los cambios. La lectura PDF extrae texto seleccionable; los PDF escaneados requieren OCR y no se leen todavía. La exportación PDF crea un documento de texto; revisa tablas, imágenes y diseño por separado.</p>
 </main>
 <script>
 const $=id=>document.getElementById(id),editor=$('editor');
@@ -53,7 +53,7 @@ $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;editor.value
 /* Lector ZIP DOCX: métodos ZIP almacenado y DEFLATE. */
 async function inflateRaw(bytes){if(typeof DecompressionStream==='undefined')throw Error('Este navegador no permite descomprimir DOCX. Actualiza Chrome.');const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));return new Uint8Array(await new Response(stream).arrayBuffer())}
 async function readZipFile(buffer,wanted){const b=new Uint8Array(buffer),v=new DataView(buffer);let eocd=-1;for(let i=b.length-22;i>=Math.max(0,b.length-65558);i--){if(v.getUint32(i,true)===0x06054b50){eocd=i;break}}if(eocd<0)throw Error('El archivo no parece ser un DOCX válido.');const count=v.getUint16(eocd+10,true),central=v.getUint32(eocd+16,true);let p=central;for(let n=0;n<count;n++){if(v.getUint32(p,true)!==0x02014b50)throw Error('Estructura DOCX no válida.');const method=v.getUint16(p+10,true),size=v.getUint32(p+20,true),nameLen=v.getUint16(p+28,true),extra=v.getUint16(p+30,true),comment=v.getUint16(p+32,true),local=v.getUint32(p+42,true),name=new TextDecoder().decode(b.slice(p+46,p+46+nameLen));if(name===wanted){const nl=v.getUint16(local+26,true),el=v.getUint16(local+28,true),start=local+30+nl+el,compressed=b.slice(start,start+size);if(method===0)return compressed;if(method===8)return await inflateRaw(compressed);throw Error('Compresión DOCX no compatible.')}p+=46+nameLen+extra+comment}throw Error('El DOCX no contiene word/document.xml.')}
-$('docxFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=await readZipFile(await f.arrayBuffer(),'word/document.xml'),xml=new DOMParser().parseFromString(new TextDecoder().decode(data),'application/xml');if(xml.querySelector('parsererror'))throw Error('No se pudo leer el contenido Word.');const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main',paras=[...xml.getElementsByTagNameNS(ns,'p')];editor.value=paras.map(p=>{let s='';for(const node of p.childNodes){if(node.nodeType===1){if(node.localName==='r'){for(const x of node.childNodes){if(x.nodeType===1&&x.localName==='t')s+=x.textContent;else if(x.nodeType===1&&x.localName==='tab')s+='\t';else if(x.nodeType===1&&x.localName==='br')s+='\n'}}else if(node.localName==='hyperlink')s+=[...node.getElementsByTagNameNS(ns,'t')].map(x=>x.textContent).join('')}}return s}).join('\n');update();$('result').textContent='Documento Word abierto: '+f.name+' (texto extraído).'}catch(err){$('result').textContent='No se pudo abrir el DOCX: '+err.message}e.target.value=''};
+$('docxFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.name.toLowerCase().endsWith('.pdf')||f.type==='application/pdf'){editor.value=await extractDocxText(f);update();$('result').textContent='PDF leído: '+f.name+' (texto extraído).';e.target.value='';return;}const data=await readZipFile(await f.arrayBuffer(),'word/document.xml'),xml=new DOMParser().parseFromString(new TextDecoder().decode(data),'application/xml');if(xml.querySelector('parsererror'))throw Error('No se pudo leer el contenido Word.');const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main',paras=[...xml.getElementsByTagNameNS(ns,'p')];editor.value=paras.map(p=>{let s='';for(const node of p.childNodes){if(node.nodeType===1){if(node.localName==='r'){for(const x of node.childNodes){if(x.nodeType===1&&x.localName==='t')s+=x.textContent;else if(x.nodeType===1&&x.localName==='tab')s+='\t';else if(x.nodeType===1&&x.localName==='br')s+='\n'}}else if(node.localName==='hyperlink')s+=[...node.getElementsByTagNameNS(ns,'t')].map(x=>x.textContent).join('')}}return s}).join('\n');update();$('result').textContent='Documento Word abierto: '+f.name+' (texto extraído).'}catch(err){$('result').textContent='No se pudo abrir el DOCX: '+err.message}e.target.value=''};
 /* Generador DOCX mínimo: ZIP sin compresión, compatible con Word y LibreOffice. */
 const enc=new TextEncoder();function crc32(bytes){let c=~0;for(const x of bytes){c^=x;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return(~c)>>>0}
 function zipStore(files){const locals=[],centrals=[];let offset=0;for(const file of files){const name=enc.encode(file.name),data=enc.encode(file.data),crc=crc32(data),lh=new Uint8Array(30+name.length+data.length),lv=new DataView(lh.buffer);lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint32(14,crc,true);lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);lv.setUint16(26,name.length,true);lh.set(name,30);lh.set(data,30+name.length);locals.push(lh);const ch=new Uint8Array(46+name.length),cv=new DataView(ch.buffer);cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);cv.setUint16(28,name.length,true);cv.setUint32(42,offset,true);ch.set(name,46);centrals.push(ch);offset+=lh.length}const csize=centrals.reduce((a,x)=>a+x.length,0),end=new Uint8Array(22),ev=new DataView(end.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);ev.setUint32(12,csize,true);ev.setUint32(16,offset,true);return new Blob([...locals,...centrals,end],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
@@ -63,10 +63,24 @@ $('saveDocx').onclick=()=>{try{const paragraphs=editor.value.split(/\r?\n/).map(
 {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
 {name:'word/document.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+paragraphs+'<w:sectPr/></w:body></w:document>'}
 ];downloadBlob(zipStore(files),'mi-texto.docx');$('result').textContent='Documento Word creado.'}catch(err){$('result').textContent='No se pudo crear el DOCX: '+err.message}};
+$('savePdf').onclick=()=>{try{if(!window.jspdf)throw Error('No se pudo cargar el generador PDF. Comprueba tu conexión.');const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'pt',format:'a4'});const margin=48,width=doc.internal.pageSize.getWidth()-margin*2;doc.setFont('helvetica','normal');doc.setFontSize(11);const lines=doc.splitTextToSize(editor.value,width);let y=54;for(const line of lines){if(y>780){doc.addPage();y=54;}doc.text(line,margin,y);y+=16;}doc.save('mi-texto.pdf');$('result').textContent='PDF generado. Revisa su presentación antes de entregarlo.'}catch(err){$('result').textContent='No se pudo crear el PDF: '+err.message}};
 
 // Adaptación local de dos documentos: toma métricas estructurales del primero y las aplica al segundo.
 let referenceText='', targetText='', referenceName='', targetName='';
 async function extractDocxText(file){
+ if(file.name.toLowerCase().endsWith('.pdf') || file.type==='application/pdf'){
+  if(!window.pdfjsLib)throw Error('No se pudo cargar el lector PDF. Comprueba tu conexión e inténtalo otra vez.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const pages=[];
+  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
+   const page=await pdf.getPage(pageNo),content=await page.getTextContent();
+   pages.push(content.items.map(item=>item.str).join(' '));
+  }
+  const text=pages.join('\\n\\n').trim();
+  if(!text)throw Error('El PDF no contiene texto seleccionable. Si es un escaneo o imagen, necesita OCR.');
+  return text;
+ }
  const data=await readZipFile(await file.arrayBuffer(),'word/document.xml');
  const xml=new DOMParser().parseFromString(new TextDecoder().decode(data),'application/xml');
  if(xml.querySelector('parsererror'))throw Error('No se pudo leer el contenido Word.');
@@ -97,7 +111,7 @@ $('targetDoc').onchange=async e=>{
  e.target.value='';
 };
 $('adaptPair').onclick=()=>{
- if(!referenceText||!targetText){$('pairResult').textContent='Primero carga los dos documentos Word.';return;}
+ if(!referenceText||!targetText){$('pairResult').textContent='Primero carga los dos documentos PDF o Word.';return;}
  const instruction=$('pairInstruction').value.toLocaleLowerCase('es');
  const cleanLines=t=>t.replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
  const refLines=cleanLines(referenceText), targetLines=cleanLines(targetText);
