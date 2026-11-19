@@ -2,9 +2,18 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><meta name="description" content="Editor de texto local sin inteligencia artificial."><title>Humanizador Sin IA</title>
 <style>
 :root{color-scheme:dark;--line:#2b3852;--text:#eef3ff;--muted:#9aa9c2;--accent:#9ba9ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#172344,#0b1020 58%);color:var(--text);font:16px/1.5 system-ui,sans-serif;min-height:100vh}main{width:min(100% - 24px,980px);margin:auto;padding:24px 0 48px}.top{display:flex;align-items:center;gap:14px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:15px;background:linear-gradient(135deg,#9ba9ff,#6e7df0);display:grid;place-items:center;color:#111827;font-size:24px;font-weight:900}.top h1{font-size:clamp(22px,4vw,30px);margin:0}.sub,.stats,.notice,.sample{color:var(--muted)}.sub{margin:2px 0;font-size:14px}.panel{background:linear-gradient(180deg,#18233a,#121a2d);border:1px solid var(--line);border-radius:19px;padding:17px;margin-bottom:15px;box-shadow:0 18px 55px #0003}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.stats{font-size:12px}textarea{width:100%;min-height:300px;resize:vertical;border:1px solid #34425f;border-radius:14px;background:#0b1325;color:var(--text);padding:16px;font:16px/1.65 system-ui,sans-serif;outline:none}textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px #8b9cff22}textarea::placeholder{color:#71809b}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}button,.filebtn{border:1px solid var(--line);background:#202d48;color:var(--text);border-radius:11px;padding:11px 14px;font-weight:650;font-size:14px;cursor:pointer}button.primary{background:var(--accent);color:#10172a;border-color:transparent}button:hover,.filebtn:hover{filter:brightness(1.12)}input[type=file]{display:none}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#0d1629;border:1px solid var(--line);border-radius:13px;padding:13px}.metric b{display:block;font-size:23px}.metric span{font-size:12px;color:var(--muted)}.result{color:var(--muted);font-size:14px;min-height:22px;margin-top:12px}.notice{font-size:12px;margin:17px 2px}.sample{font-size:14px;margin:0 0 10px}@media(max-width:560px){main{padding-top:16px}.panel{padding:13px}textarea{min-height:270px}.actions button,.filebtn{flex:1 1 auto}.metric{padding:9px}.metric b{font-size:20px}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script></head>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.js"></script></head>
 <body><main>
 <header class="top"><div class="logo">H</div><div><h1>Humanizador Sin IA</h1><p class="sub">Editor y analizador de escritura · procesamiento local</p></div></header>
+
+<section class="panel" id="wordPreservePanel">
+<div class="toolbar"><strong>Procesar Word conservando su diseño</strong><span class="stats">Archivo .docx</span></div>
+<p class="sample">Carga tu documento Word. Se conservarán sus partes originales (portada, imágenes, tablas, estilos, encabezados y saltos) y se aplicarán únicamente ajustes de redacción locales donde las reglas reconozcan expresiones. No se reescribe semánticamente la mayoría del texto.</p>
+<div class="actions"><label class="filebtn" for="preserveWord">Seleccionar documento Word</label><input id="preserveWord" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>
+<div class="result" id="preserveStatus" aria-live="polite">Ningún documento seleccionado.</div>
+<div class="actions"><button class="primary" id="processPreserve" disabled>Procesar y preparar PDF</button></div>
+<div class="result" id="pdfStatus" aria-live="polite">Al preparar el PDF se abrirá el diálogo de impresión del navegador; elige “Guardar como PDF”.</div>
+</section>
 <section class="panel">
 <div class="toolbar"><strong>Adaptar un documento usando otro como referencia</strong><span class="stats">2 documentos PDF o Word</span></div>
 <p class="sample">1) Sube tu trabajo. 2) Sube el documento Springer. La aplicación tomará automáticamente sus rasgos de estructura y redacción; no necesitas escribir instrucciones.</p>
@@ -233,6 +242,58 @@ $('restoreRewrite').onclick = () => {
  editor.value=previousRewrite; previousRewrite=null; update();
  $('rewriteStatus').textContent='Se restauró el texto anterior.';
 };
+
+
+/* DOCX: modifica únicamente nodos de texto w:t dentro del paquete original.
+   Así se mantienen portada, relaciones, imágenes, tablas, estilos y estructura. */
+let preserveFile=null, preserveBlob=null, preserveName='documento';
+$('preserveWord').onchange=e=>{
+ preserveFile=e.target.files[0]||null;preserveBlob=null;
+ $('processPreserve').disabled=!preserveFile;
+ $('preserveStatus').textContent=preserveFile?'Word seleccionado: '+preserveFile.name+' ('+(preserveFile.size/1024/1024).toFixed(2)+' MB).':'Ningún documento seleccionado.';
+ $('pdfStatus').textContent='Listo para procesar.';
+};
+$('processPreserve').onclick=async()=>{
+ if(!preserveFile)return;
+ try{
+  $('processPreserve').disabled=true;$('preserveStatus').textContent='Procesando el Word sin reconstruir su diseño…';
+  if(!window.JSZip)throw Error('No se pudo cargar el lector de documentos. Comprueba tu conexión.');
+  const zip=await JSZip.loadAsync(preserveFile);
+  const xmlFile=zip.file('word/document.xml');if(!xmlFile)throw Error('El archivo no contiene el documento principal de Word.');
+  let xml=await xmlFile.async('string');
+  const parser=new DOMParser(),doc=parser.parseFromString(xml,'application/xml');
+  if(doc.querySelector('parsererror'))throw Error('El XML interno del Word no se pudo leer.');
+  const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const nodes=[...doc.getElementsByTagNameNS(ns,'t')];
+  let changed=0, touched=0;
+  for(const node of nodes){
+   const before=node.textContent;
+   const after=transformSpanish(before,'clarity');
+   if(after!==before){node.textContent=after;changed++;touched+=Math.max(0,before.length-after.length);}
+  }
+  if(!changed){$('preserveStatus').textContent='No se encontraron expresiones compatibles con las reglas locales. No se modificó el contenido.';return;}
+  const serializer=new XMLSerializer();
+  zip.file('word/document.xml',serializer.serializeToString(doc));
+  preserveBlob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+  preserveName=preserveFile.name.replace(/\.docx$/i,'')+'_editado';
+  downloadBlob(preserveBlob,preserveName+'.docx');
+  $('preserveStatus').textContent='Documento procesado. Se ajustaron '+changed+' fragmentos de texto. Se conservaron las partes y estructura originales del Word.';
+  $('pdfStatus').textContent='Se descargó también una copia Word editada. Preparando vista de impresión para guardar como PDF…';
+  await printDocxAsPdf(preserveBlob);
+ }catch(err){$('preserveStatus').textContent='No se pudo procesar el documento: '+err.message;$('pdfStatus').textContent='';}
+ finally{$('processPreserve').disabled=!preserveFile;}
+};
+async function printDocxAsPdf(blob){
+ if(!window.docx||!window.docx.renderAsync)throw Error('No se pudo cargar el conversor de Word para impresión.');
+ const frame=document.createElement('iframe');
+ frame.style.cssText='position:fixed;left:-10000px;top:0;width:900px;height:1200px;border:0;opacity:0;pointer-events:none;';
+ document.body.appendChild(frame);
+ const d=frame.contentDocument;d.open();d.write('<!doctype html><html><head><meta charset="utf-8"><title>PDF</title><style>@page{size:A4;margin:18mm}body{background:white}</style></head><body><div id="docx-container"></div></body></html>');d.close();
+ await window.docx.renderAsync(blob,d.getElementById('docx-container'),null,{breakPages:true,ignoreWidth:false,ignoreHeight:false,ignoreFonts:false});
+ $('pdfStatus').textContent='Documento preparado. En el diálogo de impresión selecciona “Guardar como PDF” y confirma el guardado.';
+ frame.contentWindow.focus();frame.contentWindow.print();
+ setTimeout(()=>frame.remove(),60000);
+}
 
 update();
 </script></body></html>
