@@ -160,64 +160,64 @@ $('adaptPair').onclick=()=>{
 let previousRewrite = null;
 const phraseRules = {
  clarity: [
-  [/\\bdebido al hecho de que\\b/gi,'porque'],
-  [/\\ba pesar del hecho de que\\b/gi,'aunque'],
-  [/\\bcon el objetivo de\\b/gi,'para'],
-  [/\\bcon la finalidad de\\b/gi,'para'],
-  [/\\ben el momento actual\\b/gi,'actualmente'],
-  [/\\ben la actualidad\\b/gi,'hoy en día'],
-  [/\\btiene la capacidad de\\b/gi,'puede'],
-  [/\\bllevar a cabo\\b/gi,'realizar'],
-  [/\\bproceder a\\b/gi,''],
-  [/\\bde manera,? forma\\b/gi,''],
-  [/\\bes importante mencionar que\\b/gi,''],
-  [/\\bcabe señalar que\\b/gi,'']
+  [/\bdebido al hecho de que\b/gi,'porque'],
+  [/\ba pesar del hecho de que\b/gi,'aunque'],
+  [/\bcon el objetivo de\b/gi,'para'],
+  [/\bcon la finalidad de\b/gi,'para'],
+  [/\ben el momento actual\b/gi,'actualmente'],
+  [/\ben la actualidad\b/gi,'hoy en día'],
+  [/\btiene la capacidad de\b/gi,'puede'],
+  [/\bllevar a cabo\b/gi,'realizar'],
+  [/\bproceder a\b/gi,''],
+  [/\bde manera,? forma\b/gi,''],
+  [/\bes importante mencionar que\b/gi,''],
+  [/\bcabe señalar que\b/gi,'']
  ],
  concise: [
-  [/\\bdebido al hecho de que\\b/gi,'porque'],
-  [/\\bcon el objetivo de\\b/gi,'para'],
-  [/\\bcon la finalidad de\\b/gi,'para'],
-  [/\\ba pesar del hecho de que\\b/gi,'aunque'],
-  [/\\ben virtud de que\\b/gi,'porque'],
-  [/\\bde manera conjunta\\b/gi,'juntos'],
-  [/\\ben el caso de que\\b/gi,'si'],
-  [/\\buna gran cantidad de\\b/gi,'muchos'],
-  [/\\bcon respecto a\\b/gi,'sobre'],
-  [/\\ben relación con\\b/gi,'sobre'],
-  [/\\bcon la intención de\\b/gi,'para'],
-  [/\\bpor un periodo de tiempo de\\b/gi,'durante']
+  [/\bdebido al hecho de que\b/gi,'porque'],
+  [/\bcon el objetivo de\b/gi,'para'],
+  [/\bcon la finalidad de\b/gi,'para'],
+  [/\ba pesar del hecho de que\b/gi,'aunque'],
+  [/\ben virtud de que\b/gi,'porque'],
+  [/\bde manera conjunta\b/gi,'juntos'],
+  [/\ben el caso de que\b/gi,'si'],
+  [/\buna gran cantidad de\b/gi,'muchos'],
+  [/\bcon respecto a\b/gi,'sobre'],
+  [/\ben relación con\b/gi,'sobre'],
+  [/\bcon la intención de\b/gi,'para'],
+  [/\bpor un periodo de tiempo de\b/gi,'durante']
  ],
  formal: [
-  [/\\bpero\\b/gi,'sin embargo'],
-  [/\\bpor eso\\b/gi,'por ese motivo'],
-  [/\\bademás de eso\\b/gi,'asimismo'],
-  [/\\bde todos modos\\b/gi,'no obstante'],
-  [/\\bpor ejemplo\\b/gi,'a modo de ejemplo'],
-  [/\\bmostrar\\b/gi,'presentar'],
-  [/\\bdecir\\b/gi,'señalar']
+  [/\bpero\b/gi,'sin embargo'],
+  [/\bpor eso\b/gi,'por ese motivo'],
+  [/\bademás de eso\b/gi,'asimismo'],
+  [/\bde todos modos\b/gi,'no obstante'],
+  [/\bpor ejemplo\b/gi,'a modo de ejemplo'],
+  [/\bmostrar\b/gi,'presentar'],
+  [/\bdecir\b/gi,'señalar']
  ],
  simple: [
-  [/\\butilizar\\b/gi,'usar'],
-  [/\\bimplementar\\b/gi,'poner en práctica'],
-  [/\\bposteriormente\\b/gi,'después'],
-  [/\\bpreviamente\\b/gi,'antes'],
-  [/\\badicionalmente\\b/gi,'además'],
-  [/\\bpor consiguiente\\b/gi,'por eso'],
-  [/\\bno obstante\\b/gi,'pero'],
-  [/\\bmediante\\b/gi,'por medio de'],
-  [/\\bconstituye\\b/gi,'es']
+  [/\butilizar\b/gi,'usar'],
+  [/\bimplementar\b/gi,'poner en práctica'],
+  [/\bposteriormente\b/gi,'después'],
+  [/\bpreviamente\b/gi,'antes'],
+  [/\badicionalmente\b/gi,'además'],
+  [/\bpor consiguiente\b/gi,'por eso'],
+  [/\bno obstante\b/gi,'pero'],
+  [/\bmediante\b/gi,'por medio de'],
+  [/\bconstituye\b/gi,'es']
  ]
 };
 function transformSpanish(text, mode) {
- let out = text.replace(/\\r/g,'').replace(/[ \\t]+/g,' ').replace(/\\n{3,}/g,'\\n\\n');
+ let out = text.replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n');
  const rules = phraseRules[mode] || phraseRules.clarity;
  for (const [pattern,replacement] of rules) out = out.replace(pattern,replacement);
  // Elimina duplicaciones accidentales de palabras consecutivas sin alterar el sentido.
- out = out.replace(/\\b([\\p{L}]{2,})(\\s+\\1\\b)+/giu,'$1');
+ out = out.replace(/\b([\p{L}]{2,})(\s+\1\b)+/giu,'$1');
  // Corrige espacios y puntuación, preservando párrafos.
- out = out.replace(/ +([,.;:!?])/g,'$1').replace(/([,;:])(?=\\S)/g,'$1 ').replace(/([.!?])(?=[A-ZÁÉÍÓÚÜÑ])/g,'$1 ');
- out = out.replace(/(^|[.!?]\\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
- out = out.replace(/\\s+([.!?])/g,'$1').replace(/ {2,}/g,' ').trim();
+ out = out.replace(/ +([,.;:!?])/g,'$1').replace(/([,;:])(?=\S)/g,'$1 ').replace(/([.!?])(?=[A-ZÁÉÍÓÚÜÑ])/g,'$1 ');
+ out = out.replace(/(^|[.!?]\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+ out = out.replace(/\s+([.!?])/g,'$1').replace(/ {2,}/g,' ').trim();
  return out;
 }
 $('rewrite').onclick = () => {
