@@ -9,8 +9,8 @@
 <div class="toolbar"><strong>Adaptar un documento usando otro como referencia</strong><span class="stats">2 documentos PDF o Word</span></div>
 <p class="sample">Sube el documento de referencia y el documento que quieres adaptar. Después escribe qué características quieres tomar del primero.</p>
 <div class="actions">
-<label class="filebtn" for="referenceDoc">1. Documento de referencia</label><input id="referenceDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-<label class="filebtn" for="targetDoc">2. Documento que adaptarás</label><input id="targetDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+<label class="filebtn" for="referenceDoc">1. Documento que corregirás</label><input id="referenceDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+<label class="filebtn" for="targetDoc">2. Modelo Springer de referencia</label><input id="targetDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 </div>
 <div class="result" id="pairStatus" aria-live="polite">Aún no has cargado los dos documentos.</div>
 <label for="pairInstruction"><strong>Instrucciones</strong></label>
@@ -100,14 +100,14 @@ async function extractDocxText(file){
 }
 $('referenceDoc').onchange=async e=>{
  const file=e.target.files[0];if(!file)return;
- try{referenceText=await extractDocxText(file);referenceName=file.name;$('pairStatus').textContent='Referencia cargada: '+referenceName+' ('+words(referenceText).length+' palabras).';}
- catch(err){referenceText='';$('pairStatus').textContent='Error en documento de referencia: '+err.message;}
+ try{targetText=await extractDocxText(file);targetName=file.name;$('pairStatus').textContent='Documento que corregirás cargado: '+targetName+' ('+words(targetText).length+' palabras).';}
+ catch(err){targetText='';$('pairStatus').textContent='Error en el documento que corregirás: '+err.message;}
  e.target.value='';
 };
 $('targetDoc').onchange=async e=>{
  const file=e.target.files[0];if(!file)return;
- try{targetText=await extractDocxText(file);targetName=file.name;$('pairStatus').textContent='Documento que adaptarás cargado: '+targetName+' ('+words(targetText).length+' palabras).';}
- catch(err){targetText='';$('pairStatus').textContent='Error en el segundo documento: '+err.message;}
+ try{referenceText=await extractDocxText(file);referenceName=file.name;$('pairStatus').textContent='Modelo Springer cargado: '+referenceName+' ('+words(referenceText).length+' palabras).';}
+ catch(err){referenceText='';$('pairStatus').textContent='Error en el modelo Springer: '+err.message;}
  e.target.value='';
 };
 $('adaptPair').onclick=()=>{
