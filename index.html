@@ -75,7 +75,7 @@ async function extractDocxText(file){
    const page=await pdf.getPage(pageNo),content=await page.getTextContent();
    pages.push(content.items.map(item=>item.str).join(' '));
   }
-  const text=pages.join('\\n\\n').trim();
+  const text=pages.join('\n\n').trim();
   if(!text)throw Error('El PDF no contiene texto seleccionable. Si es un escaneo o imagen, necesita OCR.');
   return text;
  }
@@ -94,7 +94,7 @@ async function extractDocxText(file){
    else if(node.localName==='hyperlink')out+=[...node.getElementsByTagNameNS(ns,'t')].map(x=>x.textContent).join('');
   }
   return out;
- }).join('\\n').trim();
+ }).join('\n').trim();
 }
 $('referenceDoc').onchange=async e=>{
  const file=e.target.files[0];if(!file)return;
