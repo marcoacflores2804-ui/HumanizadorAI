@@ -8,7 +8,7 @@
 
 <section class="panel" id="wordPreservePanel">
 <div class="toolbar"><strong>Procesar Word conservando su diseño</strong><span class="stats">Archivo .docx</span></div>
-<p class="sample">Carga tu documento Word. Se conservarán sus partes originales (portada, imágenes, tablas, estilos, encabezados y saltos) y se aplicarán únicamente ajustes de redacción locales donde las reglas reconozcan expresiones. No se reescribe semánticamente la mayoría del texto.</p>
+<p class="sample">La aplicación ajusta expresiones reconocidas para mejorar claridad y naturalidad. Conserva el paquete Word, su portada, imágenes, tablas y estilos. Al ser un motor local sin IA, no puede parafrasear libremente todo el documento; revisa siempre los cambios.</p>
 <div class="actions"><label class="filebtn" for="preserveWord">Seleccionar documento Word</label><input id="preserveWord" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>
 <div class="result" id="preserveStatus" aria-live="polite">Ningún documento seleccionado.</div>
 <div class="actions"><button class="primary" id="processPreserve" disabled>Procesar y preparar PDF</button></div>
@@ -27,10 +27,10 @@
 </section>
 <section class="panel">
 <div class="toolbar"><strong>Transformar redacción</strong><span class="stats">Motor lingüístico local · sin IA</span></div>
-<p class="sample">Aplica cambios de claridad, concisión o tono formal usando reglas de español. El resultado sustituye el texto del editor; puedes deshacerlo con el botón de restaurar.</p>
+<p class="sample">Mejora la claridad y naturalidad de la redacción con reglas locales de español. No inventa información ni garantiza resultados en detectores. Puedes restaurar el texto original.</p>
 <label for="rewriteMode"><strong>Tipo de transformación</strong></label>
 <select id="rewriteMode" style="width:100%;margin-top:7px;padding:12px;border-radius:10px;background:#0b1325;color:var(--text);border:1px solid #34425f">
-<option value="clarity">Claridad y fluidez</option><option value="concise">Más conciso</option><option value="formal">Tono más formal</option><option value="simple">Lenguaje más sencillo</option>
+<option value="natural">Humanizar redacción (natural y clara)</option><option value="clarity">Claridad y fluidez</option><option value="concise">Más conciso</option><option value="formal">Tono más formal</option><option value="simple">Lenguaje más sencillo</option>
 </select>
 <div class="actions"><button class="primary" id="rewrite">Transformar texto</button><button id="restoreRewrite">Restaurar texto anterior</button></div>
 <div class="result" id="rewriteStatus" aria-live="polite">Escribe o pega un texto en el editor y elige un tipo de transformación.</div>
@@ -171,6 +171,33 @@ $('adaptPair').onclick=()=>{
 // Motor local de transformación de redacción. No usa modelos ni servicios externos.
 let previousRewrite = null;
 const phraseRules = {
+ natural: [
+  [/\ben el presente trabajo se pretende analizar\b/gi,'este trabajo analiza'],
+  [/\bse puede observar que\b/gi,'se observa que'],
+  [/\bes importante destacar que\b/gi,'conviene señalar que'],
+  [/\bcabe mencionar que\b/gi,'también hay que señalar que'],
+  [/\ben este orden de ideas\b/gi,'por esta razón'],
+  [/\bde igual manera\b/gi,'del mismo modo'],
+  [/\bcon base en lo anterior\b/gi,'a partir de lo anterior'],
+  [/\bpor medio del presente\b/gi,'mediante este documento'],
+  [/\bse llevó a cabo\b/gi,'se realizó'],
+  [/\bcon el paso del tiempo\b/gi,'con el tiempo'],
+  [/\ben términos generales\b/gi,'en general'],
+  [/\bde manera significativa\b/gi,'de forma importante'],
+  [/\bdebido a que\b/gi,'porque'],
+  [/\bpor lo que se refiere a\b/gi,'sobre'],
+  [/\bresulta de gran importancia\b/gi,'es importante'],
+  [/\bse debe tener en consideración\b/gi,'se debe considerar'],
+  [/\bcon la finalidad de\b/gi,'para'],
+  [/\bcon el propósito de\b/gi,'para'],
+  [/\ben consecuencia\b/gi,'por ello'],
+  [/\bno obstante lo anterior\b/gi,'aun así'],
+  [/\bpor otra parte\b/gi,'además'],
+  [/\bde forma adecuada\b/gi,'correctamente'],
+  [/\buna problemática\b/gi,'un problema'],
+  [/\brealizar la implementación de\b/gi,'implementar']
+ ],
+
  clarity: [
   [/\bdebido al hecho de que\b/gi,'porque'],
   [/\ba pesar del hecho de que\b/gi,'aunque'],
@@ -241,7 +268,7 @@ $('rewrite').onclick = () => {
  previousRewrite = original;
  editor.value = result; update();
  const changed = Math.max(0,original.length-result.length);
- const labels = {clarity:'claridad y fluidez',concise:'concisión',formal:'tono formal',simple:'lenguaje sencillo'};
+ const labels = {natural:'redacción más natural y clara',clarity:'claridad y fluidez',concise:'concisión',formal:'tono formal',simple:'lenguaje sencillo'};
  $('rewriteStatus').textContent='Transformación aplicada ('+labels[mode]+'). Se ajustaron expresiones y formato; revisa el significado antes de usar el resultado. Diferencia de longitud: '+changed+' caracteres.';
  $('result').textContent='Redacción transformada mediante reglas locales.';
 };
@@ -264,7 +291,7 @@ $('preserveWord').onchange=e=>{
 $('processPreserve').onclick=async()=>{
  if(!preserveFile)return;
  try{
-  $('processPreserve').disabled=true;$('preserveStatus').textContent='Procesando el Word sin reconstruir su diseño…';
+  $('processPreserve').disabled=true;$('preserveStatus').textContent='Humanizando la redacción del Word y conservando su estructura…';
   if(!window.JSZip)throw Error('No se pudo cargar el lector de documentos. Comprueba tu conexión.');
   const zip=await JSZip.loadAsync(preserveFile);
   const xmlFile=zip.file('word/document.xml');if(!xmlFile)throw Error('El archivo no contiene el documento principal de Word.');
@@ -276,16 +303,16 @@ $('processPreserve').onclick=async()=>{
   let changed=0, touched=0;
   for(const node of nodes){
    const before=node.textContent;
-   const after=transformSpanish(before,'clarity');
+   const after=transformSpanish(before,'natural');
    if(after!==before){node.textContent=after;changed++;touched+=Math.max(0,before.length-after.length);}
   }
-  if(!changed){$('preserveStatus').textContent='No se encontraron expresiones compatibles con las reglas locales. No se modificó el contenido.';return;}
+  if(!changed){$('preserveStatus').textContent='No se encontraron expresiones reconocidas por las reglas de redacción natural. El documento permanece sin cambios.';return;}
   const serializer=new XMLSerializer();
   zip.file('word/document.xml',serializer.serializeToString(doc));
   preserveBlob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
   preserveName=preserveFile.name.replace(/\.docx$/i,'')+'_editado';
   downloadBlob(preserveBlob,preserveName+'.docx');
-  $('preserveStatus').textContent='Documento procesado. Se ajustaron '+changed+' fragmentos de texto. Se conservaron las partes y estructura originales del Word.';
+  $('preserveStatus').textContent='Documento procesado. Se ajustaron '+changed+' fragmentos de texto con reglas locales de redacción natural. Se conservaron las partes y estructura originales del Word; revisa los cambios.';
   $('pdfStatus').textContent='Se descargó también una copia Word editada. Preparando vista de impresión para guardar como PDF…';
   await printDocxAsPdf(preserveBlob);
  }catch(err){$('preserveStatus').textContent='No se pudo procesar el documento: '+err.message;$('pdfStatus').textContent='';}
