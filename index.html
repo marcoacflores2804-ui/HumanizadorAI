@@ -7,16 +7,14 @@
 <header class="top"><div class="logo">H</div><div><h1>Humanizador Sin IA</h1><p class="sub">Editor y analizador de escritura · procesamiento local</p></div></header>
 <section class="panel">
 <div class="toolbar"><strong>Adaptar un documento usando otro como referencia</strong><span class="stats">2 documentos PDF o Word</span></div>
-<p class="sample">Sube el documento de referencia y el documento que quieres adaptar. Después escribe qué características quieres tomar del primero.</p>
+<p class="sample">1) Sube tu trabajo. 2) Sube el documento Springer. La aplicación tomará automáticamente sus rasgos de estructura y redacción; no necesitas escribir instrucciones.</p>
 <div class="actions">
 <label class="filebtn" for="referenceDoc">1. Documento que corregirás</label><input id="referenceDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 <label class="filebtn" for="targetDoc">2. Modelo Springer de referencia</label><input id="targetDoc" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
 </div>
 <div class="result" id="pairStatus" aria-live="polite">Aún no has cargado los dos documentos.</div>
-<label for="pairInstruction"><strong>Instrucciones</strong></label>
-<textarea id="pairInstruction" style="min-height:105px;margin-top:8px" placeholder="Ejemplo: toma del primer documento la organización de los párrafos, la longitud aproximada y el tono formal. Conserva las ideas y los datos del segundo documento."></textarea>
-<div class="actions"><button class="primary" id="adaptPair">Aplicar estructura y formato</button></div>
-<div class="result" id="pairResult" aria-live="polite">Esta función usa reglas locales; no utiliza IA ni reescribe ideas de forma inteligente.</div>
+<div class="actions"><button class="primary" id="adaptPair">Adaptar automáticamente según Springer</button></div>
+<div class="result" id="pairResult" aria-live="polite">Carga los dos documentos y pulsa el botón. Se conservarán las ideas y los datos de tu trabajo.</div>
 </section>
 <section class="panel">
 <div class="toolbar"><strong>Transformar redacción</strong><span class="stats">Motor lingüístico local · sin IA</span></div>
@@ -111,63 +109,46 @@ $('targetDoc').onchange=async e=>{
  e.target.value='';
 };
 $('adaptPair').onclick=()=>{
- if(!referenceText||!targetText){$('pairResult').textContent='Primero carga los dos documentos PDF o Word.';return;}
- const instruction=$('pairInstruction').value.toLocaleLowerCase('es');
- const cleanLines=t=>t.replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
- const refLines=cleanLines(referenceText), targetLines=cleanLines(targetText);
- const isHeading=line=>line.length<100&&!/[.!?;:]$/.test(line)&&line.split(/\s+/).length<=12;
- const isList=line=>/^([-*•▪◦]|\d+[.)])\s/.test(line);
- const refParas=referenceText.split(/\n+/).map(x=>x.trim()).filter(Boolean);
- const refBody=refParas.filter(x=>!isHeading(x)&&!isList(x));
- const refSentences=refBody.flatMap(p=>p.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]);
- const avgSentences=refBody.length?refSentences.length/refBody.length:3;
- const avgWords=refBody.length?refBody.reduce((n,p)=>n+words(p).length,0)/refBody.length:90;
- const refHasBullets=refLines.filter(isList).length>=2;
- const refHasHeadings=refLines.filter(isHeading).length>=2;
- let sentencesPerParagraph=Math.max(1,Math.min(8,Math.round(avgSentences)));
- let maxWords=Math.max(25,Math.min(220,Math.round(avgWords)));
- if(/párrafos? (muy )?cortos|párrafos? breves/.test(instruction)){sentencesPerParagraph=1;maxWords=Math.min(maxWords,55);}
- if(/párrafos? largos|párrafos? extensos/.test(instruction)){sentencesPerParagraph=Math.min(8,Math.max(3,sentencesPerParagraph+2));maxWords=Math.max(maxWords,110);}
- if(/oraciones? cortas|frases? cortas/.test(instruction))sentencesPerParagraph=Math.max(1,Math.min(2,sentencesPerParagraph));
- if(/oraciones? largas|frases? largas/.test(instruction))sentencesPerParagraph=Math.min(8,Math.max(3,sentencesPerParagraph));
- const sourceLines=targetText.replace(/\r/g,'').split('\n');
- const blocks=[];let current=[];
- const flush=()=>{if(current.length){blocks.push({type:'body',text:current.join(' ').trim()});current=[];}};
- for(const raw of sourceLines){
-  const line=raw.trim();
-  if(!line){flush();continue;}
-  if(isHeading(line)){flush();blocks.push({type:'heading',text:line});}
-  else if(isList(line)){flush();blocks.push({type:'list',text:line});}
-  else current.push(line);
- }
- flush();
- const output=[];
- for(const block of blocks){
-  if(block.type==='heading'){output.push(block.text.toLocaleUpperCase('es'));continue;}
-  if(block.type==='list'){output.push(block.text.replace(/^\* /,'• '));continue;}
-  const parts=block.text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[block.text];
+ if(!referenceText||!targetText){$('pairResult').textContent='Primero carga los dos documentos: tu trabajo y el modelo Springer.';return;}
+ const clean=t=>t.replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+ const ref=clean(referenceText),source=clean(targetText);
+ const paras=t=>t.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+ const sentences=t=>(t.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]).map(x=>x.trim()).filter(Boolean);
+ const refParas=paras(ref),refBody=refParas.filter(p=>p.length>35&&!/^(\d+(\.\d+)*\.?\s+)?[A-ZÁÉÍÓÚÜÑ0-9\s:,-]{3,90}$/.test(p));
+ const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+ const avgWords=mean(refBody.map(p=>words(p).length))||90;
+ const avgSentences=mean(refBody.map(p=>sentences(p).length).filter(Boolean))||3;
+ const maxWords=Math.max(35,Math.min(180,Math.round(avgWords)));
+ const maxSentences=Math.max(1,Math.min(7,Math.round(avgSentences)));
+ const hasLists=/^\s*(?:[-*•▪]|\d+[.)])\s+/m.test(ref);
+ const terms=['por consiguiente','asimismo','no obstante','en este sentido','por otra parte','de acuerdo con','se observa','se considera'];
+ const formalScore=terms.reduce((n,x)=>n+(ref.toLocaleLowerCase('es').split(x).length-1),0);
+ let edited=transformSpanish(source,formalScore>=2?'formal':'clarity').replace(/\r/g,'').trim();
+ const output=[];let pending=[];
+ const flush=()=>{
+  if(!pending.length)return;
   let group=[],count=0;
   const emit=()=>{if(group.length){output.push(group.join(' ').trim());group=[];count=0;}};
-  for(const part of parts){
-   const sentence=part.trim();if(!sentence)continue;
-   if(group.length&&(group.length>=sentencesPerParagraph||count+words(sentence).length>maxWords))emit();
-   group.push(sentence);count+=words(sentence).length;
+  for(const s of pending){const n=words(s).length;if(group.length&&(group.length>=maxSentences||count+n>maxWords))emit();group.push(s);count+=n;}
+  emit();pending=[];
+ };
+ for(const p of paras(edited)){
+  for(const raw of p.split('\n')){
+   const line=raw.trim();if(!line)continue;
+   const list=/^([-*•▪◦]|\d+[.)])\s/.test(line);
+   const heading=line.length<105&&!/[.!?;:]$/.test(line)&&line.split(/\s+/).length<=8;
+   if(list){flush();output.push(hasLists?line:line.replace(/^[-*•▪◦]\s*/,''));}
+   else if(heading){flush();output.push(line);}
+   else pending.push(...sentences(line));
   }
-  emit();
  }
- let result=output.join('\n\n')
-  .replace(/[ \t]+/g,' ')
-  .replace(/([,.!?;:])\1+/g,'$1')
-  .replace(/\s+([,.!?;:])/g,'$1')
-  .replace(/([.!?])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g,'$1 $2')
-  .replace(/(^|[.!?]\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
- if(/sin títulos|quitar títulos/.test(instruction))result=result.split('\n').filter(x=>!(x===x.toLocaleUpperCase('es')&&x.length<100&&!/[.!?]$/.test(x))).join('\n');
- if(/quitar viñetas|sin viñetas/.test(instruction))result=result.replace(/^•\s/gm,'');
+ flush();
+ let result=output.join('\n\n').replace(/[ \t]+/g,' ').replace(/([,.!?;:])\1+/g,'$1').replace(/\s+([,.!?;:])/g,'$1').replace(/([.!?])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g,'$1 $2').replace(/(^|[.!?]\s+)([a-záéíóúüñ])/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+ if(!hasLists)result=result.replace(/^•\s/gm,'');
  editor.value=result;update();
- const profile='Referencia analizada: '+refParas.length+' párrafos, aproximadamente '+Math.round(avgWords)+' palabras por párrafo y '+sentencesPerParagraph+' oraciones por párrafo en el resultado. '+(refHasHeadings?'Se detectaron encabezados. ':'')+(refHasBullets?'Se detectaron listas. ':'');
- $('pairResult').textContent='Adaptación estructural terminada. '+profile+'Se conservaron las palabras e ideas del segundo documento; se ajustaron cortes de párrafo, encabezados detectables, listas y puntuación. Las instrucciones de reescritura semántica o cambio de tono no pueden ejecutarse con fiabilidad sin un motor de lenguaje. Revisa el resultado y guarda una copia Word.';
- $('result').textContent='Estructura del documento adaptada con reglas locales. Revisa antes de usarlo.';
-};;
+ $('pairResult').textContent='Adaptación automática terminada. El perfil Springer detectó '+refParas.length+' párrafos y una media aproximada de '+Math.round(avgWords)+' palabras y '+Math.round(avgSentences)+' oraciones por párrafo. Se ajustaron estructura y algunas expresiones locales; se conservaron las ideas del trabajo. No es una paráfrasis inteligente ni garantiza resultados frente a detectores. Revisa citas, datos y significado antes de entregar.';
+ $('result').textContent='Documento adaptado con el perfil estructural de Springer.';
+};
 
 
 // Motor local de transformación de redacción. No usa modelos ni servicios externos.
