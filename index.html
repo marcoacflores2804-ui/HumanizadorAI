@@ -317,7 +317,7 @@ function analyzePatterns(text){
  const stop=new Set(['de la','en el','que la','por el','a la','de los','en la','que se','en un','con la','para el']);
  const repeats=Object.entries(counts).filter(([p,n])=>n>=3&&!stop.has(p)).sort((x,y)=>y[1]-x[1]).slice(0,8);
  const pLens=paras.map(p=>words(p).length),pAvg=mean(pLens),pCv=Math.sqrt(mean(pLens.map(n=>(n-pAvg)**2)))/Math.max(1,pAvg);
- const starts=sent.map(s=>(s.toLocaleLowerCase('es').match(/\b[\p{L}]{3,}\b/u)||[])[0]).filter(Boolean);
+ const sentenceTexts=(text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]); const starts=sentenceTexts.map(s=>((s.toLocaleLowerCase('es').match(/\b[\p{L}]{3,}\b/u)||[])[0])).filter(Boolean);
  const startDiversity=new Set(starts).size/Math.max(1,starts.length);
  const connectors=(text.match(/\b(en conclusión|por otro lado|asimismo|además|en este sentido|por consiguiente|sin embargo|por lo tanto|cabe destacar)\b/gi)||[]).length;
  const signals=[];
